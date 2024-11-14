@@ -10,21 +10,57 @@
 pthread_t midiInThread;
 int fd;
 
+extern void parseKeyMap();
 void *threadFunction();
-
+int KEYBOARDSIZE = 120;
 // Global variable for easy access
 SharedData shared;
 
+KeyData keydata;
+
+int getCurrentKeyValue(int i) {
+  if (i < 0 || i >= KEYBOARDSIZE) { // Check bounds against known array size
+    return -1;                      // Error for invalid index
+  }
+  return keydata.keys[i] ? 1 : 0; // Convert bool to int
+}
+
+void printKeyState(bool *keys) {
+  int i, value;
+  for (i = 0; i < KEYBOARDSIZE; i++) { // Use known array size
+    value = getCurrentKeyValue(i);
+    printf("%d", value);
+  }
+}
+
+int updateKeyState(int i, bool state) {
+  if (i < 0 || i >= KEYBOARDSIZE) {
+    return -1;
+  }
+
+  keydata.keys[i] = state;
+
+  return 1;
+}
+
 // Function to safely read the current value
 int getCurrentValue() {
-    int value;
-    pthread_mutex_lock(&shared.mutex);
-    value = shared.currentValue;
-    pthread_mutex_unlock(&shared.mutex);
-    return value;
+  int value;
+  value = shared.currentValue;
+  return value;
 }
 
 int start_midi(void) {
+  // Initialize all keys to false
+  for (int i = 0; i < 49; i++) {
+    keydata.keys[i] = false;
+  }
+  // Initialize the mutex
+  int result = pthread_mutex_init(&keydata.mutex, NULL);
+  if (result != 0) {
+    // Handle mutex initialization error
+    return -1;
+  }
 
   // Open the MIDI device
   fd = open(MIDI_DEVICE, O_RDONLY);
@@ -43,7 +79,6 @@ int start_midi(void) {
 
   printf("Reading MIDI input from %s...\n", MIDI_DEVICE);
 
-
   return 0;
 }
 
@@ -58,23 +93,25 @@ void *threadFunction(void *x) {
   while (1) {
     bytes_read = read(fd, buffer, sizeof(buffer));
     if (bytes_read > 0) {
-      printf("MIDI message: ");
       for (int i = 0; i < bytes_read; i++) {
-        printf("%02X ", buffer[i]);
       }
-      printf("\n");
 
       // Interpret MIDI message
       if ((buffer[0] & 0xF0) == 0x90) {
-pthread_mutex_lock(&shared.mutex);
-        shared.currentValue = buffer[1];
-        printf("Note On - Note: %d, Velocity: %d\n", buffer[1], buffer[2]);
-pthread_mutex_unlock(&shared.mutex);
+        pthread_mutex_lock(&keydata.mutex);
+        updateKeyState(buffer[1], true);
+        parseKeyMap(&keydata.keys);
+        /*printKeyState(keydata.keys);*/
+        /*printf("Note On - Note: %d, Velocity: %d\n", buffer[1], buffer[2]);*/
+        pthread_mutex_unlock(&keydata.mutex);
+        printf("\n");
       } else if ((buffer[0] & 0xF0) == 0x80) {
-pthread_mutex_lock(&shared.mutex);
+        pthread_mutex_lock(&keydata.mutex);
+        updateKeyState(buffer[1], false);
         shared.currentValue = buffer[1];
-        printf("Note Off - Note: %d, Velocity: %d\n", buffer[1], buffer[2]);
-pthread_mutex_unlock(&shared.mutex);
+        /*printf("Note Off - Note: %d, Velocity: %d\n", buffer[1], buffer[2]);*/
+        pthread_mutex_unlock(&keydata.mutex);
+        printf("\n");
       }
     }
   }

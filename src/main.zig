@@ -4,17 +4,25 @@ const c = @cImport({
     @cInclude("/home/andy/Programacion/Zig/midizinewave/src/simplemidi.h");
 });
 
-fn getSharedValue() i32 {
-    _ = c.pthread_mutex_lock(&c.shared.mutex);
-    defer _ = c.pthread_mutex_unlock(&c.shared.mutex);
-    return c.shared.currentValue;
+fn getSharedValue() *[120]bool {
+    _ = c.pthread_mutex_lock(&c.keydata.mutex);
+    defer _ = c.pthread_mutex_unlock(&c.keydata.mutex);
+    return &c.keydata.keys;
 }
 
-pub fn midiNoteToFreq(note: i32) f32 {
-    const a4 = 440.0;
-    const a4NoteNumber = 69.0;
-    return a4 * std.math.pow(f32, 2.0, (@as(f32, @floatFromInt(note)) - a4NoteNumber) / 12.0);
+export fn parseKeyMap(map: *[120]bool) void {
+    for (map.*, 0..) |value, i| {
+        if (value == true) {
+            std.debug.print("{d}   |     ", .{i});
+        }
+    }
 }
+//
+// pub fn midiNoteToFreq(note: i32) f32 {
+//     const a4 = 440.0;
+//     const a4NoteNumber = 69.0;
+//     return a4 * std.math.pow(f32, 2.0, (@as(f32, @floatFromInt(note)) - a4NoteNumber) / 12.0);
+// }
 
 const sample_rate: f32 = 44100.0;
 const buffer_size: usize = sample_rate / 2;
@@ -29,8 +37,10 @@ pub fn generateWave() !void {
     // var phase3: f32 = 0.0;
 
     // First frequency (C5)
-    const freq1 = midiNoteToFreq(getSharedValue());
-    std.debug.print("{d}", .{freq1});
+    // parseKeyMap(getSharedValue());
+    // const freq1 = midiNoteToFreq(getSharedValue());
+    const freq1 = 100;
+    // std.debug.print("{d}", .{freq1});
     const phase_increment1 = (2.0 * std.math.pi * freq1) / sample_rate;
 
     for (0..buffer_size) |i| {
@@ -97,7 +107,7 @@ pub fn main() !void {
     );
     // Play
     while (true) {
-        std.debug.print("integer: {d}\n", .{getSharedValue()});
+        // std.debug.print("integer: {d}\n", .{getSharedValue()});
         try generateWave();
         _ = c.snd_pcm_writei(handle, &buffer1, buffer1.len);
     }

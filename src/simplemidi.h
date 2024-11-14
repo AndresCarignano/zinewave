@@ -1,5 +1,6 @@
 #include <pthread.h>
 #include <stdatomic.h>  // Add this for _Atomic
+#include <stdbool.h>
 #ifndef SIMPLEMIDI_H
 #define SIMPLEMIDI_H
 
@@ -9,6 +10,12 @@ typedef struct SharedData {
     pthread_mutex_t mutex;
 } SharedData;
 
+typedef struct KeyData {
+    bool keys[120];
+    pthread_mutex_t mutex;
+} KeyData;
+
+
 // Function declarations
 int start_midi(void);
 
@@ -16,4 +23,5 @@ int start_midi(void);
 extern pthread_t midiInThread;
 extern int fd;
 extern SharedData shared;
+extern KeyData keydata;
 #endif // SIMPLEMIDI_H

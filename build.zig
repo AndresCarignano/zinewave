@@ -36,6 +36,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    exe.addCSourceFile(.{
+        .file = b.path("src/simplemidi.c"),
+        .flags = &[_][]const u8{"-std=c99"}, // Optional C compiler flags
+    });
+
+    exe.addIncludePath(b.path("src/"));
     exe.linkSystemLibrary("asound");
     exe.linkLibC();
 
