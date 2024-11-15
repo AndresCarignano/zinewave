@@ -9,20 +9,74 @@ fn getSharedValue() *[120]bool {
     defer _ = c.pthread_mutex_unlock(&c.keydata.mutex);
     return &c.keydata.keys;
 }
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+const myAlloc = gpa.allocator();
 
 export fn parseKeyMap(map: *[120]bool) void {
+    var keys_pressed = std.ArrayList(f32).init(myAlloc);
+
+    defer keys_pressed.deinit();
     for (map.*, 0..) |value, i| {
         if (value == true) {
-            std.debug.print("{d}   |     ", .{i});
+            keys_pressed.append(midiNoteToFreq(@intCast(i))) catch unreachable;
+        }
+    }
+
+    while (keys_pressed.items.len > 0) {
+        std.debug.print("{d}   |     ", .{keys_pressed.pop()});
+    }
+}
+
+fn playFrequencies(frequencies: std.ArrayList(f32)) void {
+    buffer1 = undefined;
+    // Generate the combined wave
+    // Phase accumulators for both frequencies
+    var phase1: f32 = 0.0;
+
+    while (frequencies.items.len > 0) {
+        const freq1 = frequencies.pop();
+
+        const phase_increment1 = (2.0 * std.math.pi * freq1) / sample_rate;
+
+        for (0..buffer_size) |i| {
+
+            // Generate both waves
+
+            const value1 = std.math.sin(phase1);
+
+            // Mix the waves (average them and adjust amplitude)
+
+            const combined_value = (value1) * 0.33;
+            //
+            // if (i > buffer_size / 3) {
+            //     combined_value = (value1 + value2) * 0.33;
+            // }
+            //
+            // if (i > (buffer_size * 2) / 3) {
+            //     combined_value = (value1 + value2 + value3) * 0.33;
+            // }
+
+            // Convert to integer sample
+            buffer1[i] = @as(i16, @intFromFloat(combined_value * 16000.0));
+
+            // Increment phases
+            phase1 += phase_increment1;
+            // phase2 += phase_increment2;
+            // phase3 += phase_increment3;
+
+            // Keep phases in reasonable range
+            if (phase1 > 2.0 * std.math.pi) {
+                phase1 -= 2.0 * std.math.pi;
+            }
         }
     }
 }
-//
-// pub fn midiNoteToFreq(note: i32) f32 {
-//     const a4 = 440.0;
-//     const a4NoteNumber = 69.0;
-//     return a4 * std.math.pow(f32, 2.0, (@as(f32, @floatFromInt(note)) - a4NoteNumber) / 12.0);
-// }
+
+pub fn midiNoteToFreq(note: i32) f32 {
+    const a4 = 440.0;
+    const a4NoteNumber = 69.0;
+    return a4 * std.math.pow(f32, 2.0, (@as(f32, @floatFromInt(note)) - a4NoteNumber) / 12.0);
+}
 
 const sample_rate: f32 = 44100.0;
 const buffer_size: usize = sample_rate / 2;
@@ -33,14 +87,9 @@ pub fn generateWave() !void {
     // Generate the combined wave
     // Phase accumulators for both frequencies
     var phase1: f32 = 0.0;
-    // var phase2: f32 = 0.0;
-    // var phase3: f32 = 0.0;
 
-    // First frequency (C5)
-    // parseKeyMap(getSharedValue());
-    // const freq1 = midiNoteToFreq(getSharedValue());
     const freq1 = 100;
-    // std.debug.print("{d}", .{freq1});
+
     const phase_increment1 = (2.0 * std.math.pi * freq1) / sample_rate;
 
     for (0..buffer_size) |i| {
@@ -48,8 +97,6 @@ pub fn generateWave() !void {
         // Generate both waves
 
         const value1 = std.math.sin(phase1);
-        // const value2 = std.math.sin(phase2);
-        // const value3 = std.math.sin(phase3);
 
         // Mix the waves (average them and adjust amplitude)
 
