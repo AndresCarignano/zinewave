@@ -101,15 +101,12 @@ void *threadFunction(void *x) {
         pthread_mutex_lock(&keydata.mutex);
         updateKeyState(buffer[1], true);
         parseKeyMap(&keydata.keys);
-        /*printKeyState(keydata.keys);*/
-        /*printf("Note On - Note: %d, Velocity: %d\n", buffer[1], buffer[2]);*/
         pthread_mutex_unlock(&keydata.mutex);
         printf("\n");
       } else if ((buffer[0] & 0xF0) == 0x80) {
         pthread_mutex_lock(&keydata.mutex);
         updateKeyState(buffer[1], false);
-        shared.currentValue = buffer[1];
-        /*printf("Note Off - Note: %d, Velocity: %d\n", buffer[1], buffer[2]);*/
+        parseKeyMap(&keydata.keys);
         pthread_mutex_unlock(&keydata.mutex);
         printf("\n");
       }
